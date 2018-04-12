@@ -1,0 +1,47 @@
+// This code will create a simple, timed Ethereum contract to sell tokens for the Troll.tips platform
+
+pragma solidity ^0.4.16;                                // Identify the version of Solidity
+
+interface token {                                       // Create a way to access the tokens being sold
+    function transfer(address receiver, uint amount);   // Create a function named 'transfer' which lets us send the tokens
+}
+
+contract timedTokenSale {                               // Create a contract named 'timedTokenSale'
+    address public beneficiary;                         // Create an address variable named 'beneficiary' which will be our address
+    uint public amountRaised;                           // Create an integer variable named 'amountRaised' which will increase with each purchase
+    uint public deadline;                               // Create an integer variable named 'dealine' which will be the time/date the sale ends
+    uint public price;                                  // Create an integer variable named 'price' which will be the price of each token in ether
+    token public tokenReward;                           // Create a variable named 'tokenReward' which will access the tokens being sold
+    bool crowdsaleClosed = false;                       // Create a yes-no variable named 'crowdsaleClosed' which is set to false and will end the sale
+
+    event TimeComplete(address recipient, uint totalAmountRaised);        // Create a command named 'TimeComplete' to send the ether proceeds to us
+    event FundTransfer(address backer, uint amount, bool isContribution); // Create a command named 'FundTransfer' to send the tokens to the purchaser
+
+                                                        // FUNCTION #1 = launches the sale
+    function startTokenSale(                            // Create a function named 'startTokenSale' which we will use to launch the sale 
+        address sendEtherTo,                            // Create an address variable named 'sendEtherTo' which we will input
+        uint durationInMinutes,                         // Create an integer variable named 'durationInMinutes' which we will input
+        uint etherCostOfEachToken,                      // Create an integer variable named 'etherCostOfEachToken' which we will input
+        address addressOfTokenUsedAsReward              // Create an address variable named 'addressOfTokenUsedAsReward' which we will input
+    ) {                                                 // Now let's take those input variables and apply them to our contract variables...
+        beneficiary = sendEtherTo;                      // The variable 'beneficiary' becomes our input value for 'sendEtherTo'
+        deadline = now + durationInMinutes * 1 minutes; // The variable 'deadline' now equals our input value for 'durationInMinutes' in minutes
+        price = etherCostOfEachToken * 1 ether;         // The variable 'price' now equals our input value for 'etherCostOfEachToken'
+        tokenReward = token(addressOfTokenUsedAsReward);// The variable 'tokenReward' now sends tokens from our token address (we will deposit them)
+    }                                                  
+                                                        // FUNCTION #2 = receives ether and sends tokens
+    function () payable {                               // Create a function with no name which runs whenever anyone sends ether to our contract
+        require(!crowdsaleClosed);                      // Require 'crowdsaleClosed' to be false to accept more ether
+        uint amount = msg.value;                        // Create an integer variable named 'amount' which equals the amount of ether that is sent
+        amountRaised += amount;                         // Add the value of the ether sent to the total value of the variable 'amountRaised'
+        tokenReward.transfer(msg.sender, amount / price);// Send the purchaser the correct amount of tokens based on the price and the ether sent
+        FundTransfer(msg.sender, amount, true);         // Use the 'FundTransfer' function to receive the ether from the purchaser ???
+    }
+                                                        // FUNCTION #3 = ends the sale
+    function endCrowdSale() {                           // Create a function to end the sale once time expires
+        if (now >= deadline){                           // Require 'deadline' to have passed
+            TimeComplete(beneficiary, amountRaised);    // Send ourselves the ether raised
+            crowdsaleClosed = true;                     // Change the yes-no value of 'crowdsaleClosed' from false to true
+        }                                              
+    }
+}
