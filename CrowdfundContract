@@ -1,40 +1,55 @@
-// This code will create a simple, timed Ethereum contract to sell tokens for the Troll.tips platform
-// There are four phases in the sale with three tiered bonuses and a final stage with no bonus
-
 pragma solidity ^0.4.16;
-
-// ----------------------------------------------------------------------------
-// Before we get started, these functions will allow us to complete simple math with fewer errors
-// ----------------------------------------------------------------------------
-contract SafeMath {
-    function safeAdd(uint a, uint b) internal pure returns (uint c) {
-        c = a + b;
-        require(c >= a);
-    }
-    function safeSub(uint a, uint b) internal pure returns (uint c) {
-        require(b <= a);
-        c = a - b;
-    }
-    function safeMul(uint a, uint b) internal pure returns (uint c) {
-        c = a * b;
-        require(a == 0 || c / a == b);
-    }
-    function safeDiv(uint a, uint b) internal pure returns (uint c) {
-        require(b > 0);
-        c = a / b;
-    }
+// ----------------------------------------------------------------------------------------------
+// Token Sale Contract
+//
+// Deployed to : TBD
+// Symbol      : TRL
+// Name        : Troll.tips Token
+// Total supply: Trillion
+// Decimals    : 18
+//
+// This code will create a timed contract to sell erc20 tokens used on the Troll.tips platform.
+// There are four phases in the sale with three tiered bonuses and a final stage with no bonus.
+// The contract will return the ether if there are not enough tokens left to complete the purchase.
+//
+// Before we get started, this SafeMath library will allow us to complete simple math with less errors and no overflow security concerns
+// ----------------------------------------------------------------------------------------------
+library SafeMath {
+  function mul(uint a, uint b) internal pure returns (uint) {
+    uint c = a * b;
+    assert(a == 0 || c / a == b);
+    return c;
+  }
+ 
+  function div(uint a, uint b) internal pure returns (uint) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    uint c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return c;
+  }
+ 
+  function sub(uint a, uint b) internal pure returns (uint) {
+    assert(b <= a);
+    return a - b;
+  }
+ 
+  function add(uint a, uint b) internal pure returns (uint) {
+    uint c = a + b;
+    assert(c >= a);
+    return c;
+  }
 }
-
-interface token {                                       // Create a way to access the tokens being sold
-    function transfer(address receiver, uint amount);   // Create a function named 'transfer' which lets us send the tokens
+// ----------------------------------------------------------------------------------------------
+interface token {                                               // Create a way to access the tokens being sold
+    function transfer(address receiver, uint amount) external;  // Create a function named 'transfer' which lets us send the tokens
 }
-
 contract timedTokenSale {                               // Create a contract named 'timedTokenSale'
+    using SafeMath for uint;
     address public beneficiary;                         // Create an address variable named 'beneficiary' which will be our address
-    uint public amountRaised;                           // Create an integer variable named 'amountRaised' which will increase with each purchase
     uint public bonusTier2;                             // Create an integer variable named 'bonusTier2' which will be the time/date the bonus switches from Tier 1 to Tier 2 
     uint public bonusTier3;                             // Create an integer variable named 'bonusTier3' which will be the time/date the bonus switched from Tier 2 to Tier 3
     uint public bonusNone;                              // Create an integer variable named 'bonusNone' which will be the time/date the bonus switched from Tier 3 to No Bonus
+    uint public startTime;                              // Create an integer variable named 'startTime' which will be the time/date the sale begins
     uint public deadline;                               // Create an integer variable named 'dealine' which will be the time/date the sale ends
     uint public price;                                  // Create an integer variable named 'price' which will be the price of each token in ether
     token public tokenReward;                           // Create a variable named 'tokenReward' which will access the tokens being sold
@@ -42,50 +57,49 @@ contract timedTokenSale {                               // Create a contract nam
 
     modifier onlyOwner {                                // Creates a way to limit calling functions to the contract owner
         require(msg.sender == beneficiary);             // Requires that the person calling a function is the person who started the sale
+        _;
     }
 // --------------------------------------------------------FUNCTION #1 = launches the sale
     function startTokenSale(                            // Create a function named 'startTokenSale' which we will use to launch the sale 
         address sendEtherTo,                            // Create an address variable named 'sendEtherTo' which we will input
-        uint durationTotalInMinutes,                         // Create an integer variable named 'durationTotalInMinutes' which we will input
+        uint durationTotalInMinutes,                    // Create an integer variable named 'durationTotalInMinutes' which we will input
         uint durationEachBonusInMinutes,                // Create an integer variable named 'durationEachBonusInMinutes'which we will input
         uint etherCostOfEachToken,                      // Create an integer variable named 'etherCostOfEachToken' which we will input
         address addressOfTokenUsedAsReward              // Create an address variable named 'addressOfTokenUsedAsReward' which we will input
-    ) {                                                 // Now let's take those input variables and apply them to our contract variables...
-        beneficiary = sendEtherTo;                                      // The variable 'beneficiary' becomes our input value for 'sendEtherTo'
-        deadline = now + durationTotalInMinutes * 1 minutes;            // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
-        bonusTier2 = now + durationEachBonusInMinutes * 1 minutes;      // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
-        bonusTier3 = now + safeMul(durationEachBonusInMinutes, 2) * 1 minutes;  // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
-        bonusNone = now + safeMul(durationEachBonusInMinutes, 3) * 1 minutes;   // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
-
-        
-        price = etherCostOfEachToken * 1 ether;         // The variable 'price' now equals our input value for 'etherCostOfEachToken'
-        tokenReward = token(addressOfTokenUsedAsReward);// The variable 'tokenReward' now sends tokens from our token address (we will deposit them)
+    ) {                                                 // let's take those input variables and apply them to our contract variables...
+        beneficiary = sendEtherTo;                                         // The variable 'beneficiary' becomes our input value for 'sendEtherTo'
+        deadline = now + durationTotalInMinutes * 1 minutes;               // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
+        bonusTier2 = now + durationEachBonusInMinutes * 1 minutes;         // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
+        bonusTier3 = now + durationEachBonusInMinutes.mul(2) * 1 minutes;  // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes
+        bonusNone = now + durationEachBonusInMinutes.mul(3) * 1 minutes;   // The variable 'deadline' now equals our input value for 'durationTotalInMinutes' in minutes    
+        price = etherCostOfEachToken * 1 ether;                            // The variable 'price' now equals our input value for 'etherCostOfEachToken'
+        tokenReward = token(addressOfTokenUsedAsReward);                   // The variable 'tokenReward' now sends tokens from our token address (we will deposit them)
     }                                                  
-// --------------------------------------------------------FUNCTION #2 = receives ether and sends tokens
-    function () payable {                               // Create a function with no name which runs whenever anyone sends ether to our contract
-        require(!crowdsaleClosed && msg.value != 0);    // Require that the sale is not closed and the ether sent is not zero
-        uint amount = msg.value;                        // Create an integer variable named 'amount' which equals the amount of ether that is sent
-        uint tokenBonus;      
-        unint tokens;                                   // Create an integer variable named 'tokenBonus' which will be used to calculate the tokens purchased
-        if (now <= bonusTier2) {                        // If the time of purchase is before the 'bonusTier2' cutoff time...
-            tokenBonus = safeMul(msg.value, 2);         // ...then the purchase ether is doubled.
-        } else if (bonusTier2 <= now && now <= bonusTier3) {    // If the time of purchase is between 'bonusTier2' and 'bonusTier3'...
-            tokenBonus = safeMul(msg.value, 1.5);               // ...then the purchase ether is increased by 50%.
-        } else if (bonusTier3 <= now && now <= bonusNone) {     // If the time of purchase is between 'bonusTier3' and 'bonusNone'... 
-            tokenBonus = safeMul(msg.value, 1.25);              // ...then the purchase ether is increased by 25%.
+// ----------------------------------------------------------------FUNCTION #2 = receives ether and sends tokens
+    function () payable {                                       // Create a function with no name which runs whenever anyone sends ether to our contract
+        require(!crowdsaleClosed && msg.value != 0);            // Require that the sale is not closed and the ether sent is not zero
+        uint amount = msg.value;                                // Create an integer variable named 'amount' which equals the amount of ether that is sent
+        uint tokenBonus;                                        // Create an integer variable named 'tokens' which will become the total tokens purchased
+        uint tokens;                                            // Create an integer variable named 'tokenBonus' which will be used to calculate the tokens purchased
+        if (now < bonusTier2) {                                 // If the time of purchase is before the 'bonusTier2' cutoff time...
+            tokenBonus = amount.mul(2);                         // ...then the purchase ether is doubled.
+        } else if (bonusTier2 <= now && now < bonusTier3) {     // If the time of purchase is between 'bonusTier2' and 'bonusTier3'...
+            tokenBonus = amount.mul(3).div(2);                  // ...then the purchase ether is increased by 50%.
+        } else if (bonusTier3 <= now && now < bonusNone) {      // If the time of purchase is between 'bonusTier3' and 'bonusNone'... 
+            tokenBonus = amount.mul(5).div(4);                  // ...then the purchase ether is increased by 25%.
         } else {                                                // Otherwise...
-            tokenBonus = msg.value;                             // ...there is no bonus over the ether amount sent.
+            tokenBonus = amount;                                // ...there is no bonus over the ether amount sent.
         }
-        tokens = safeDiv(tokenBonus, price);            // The 'tokens' to be sent equals the 'tokenBonus' divided by the 'price'
-        tokenReward.transfer(msg.sender, tokens);       // Send the purchaser the correct amount of tokens based on the price and the ether sent
-        beneficiary.transfer(amount);                   // Send ourselves the ether
+        tokens = tokenBonus.div(price);                         // Set the 'tokens' to be sent equal the 'tokenBonus' divided by the 'price'
+        tokenReward.transfer(msg.sender, tokens);               // Send the purchaser the correct amount of tokens based on the price and the ether sent
+        beneficiary.transfer(amount);                           // Send ourselves the ether 
     }
-// --------------------------------------------------------FUNCTION #3 = puases the sale
-    function stopCrowdSale() onlyOwner{                 // Create a function to pause the sale only usable by the owner
-            crowdsaleClosed = true;                     // Change the yes-no value of 'crowdsaleClosed' from false to true
+// ----------------------------------------------------------------FUNCTION #3 = puases the sale
+    function stopCrowdSale() onlyOwner public{                  // Create a function to pause the sale only usable by the owner
+            crowdsaleClosed = true;                             // Change the yes-no value of 'crowdsaleClosed' from false to true
     }
-// --------------------------------------------------------FUNCTION #4 = restarts the sale only usable by the owner
-    function unpauseCrowdSale() onlyOwner{              // Create a function to unpause the sale only usable by the owner
-            crowdsaleClosed = false;                    // Change the yes-no value of 'crowdsaleClosed' from true to false
+// ----------------------------------------------------------------FUNCTION #4 = restarts the sale only usable by the owner
+    function unpauseCrowdSale() onlyOwner public{               // Create a function to unpause the sale only usable by the owner
+            crowdsaleClosed = false;                            // Change the yes-no value of 'crowdsaleClosed' from true to false
     }    
 }
